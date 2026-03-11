@@ -1,1 +1,1 @@
-{"name":"thw-messenger","version":"1.0.0","description":"THW Messenger Chat App","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"express":"^4.18.2","multer":"1.4.5-lts.1","socket.io":"^4.7.2","sqlite3":"^5.0.2","twilio":"^4.21.0"}}
+{"name":"thw-messenger","version":"1.0.0","description":"THW Messenger Chat App","main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"express":"^4.22.1","multer":"^1.4.5-lts.1","nodemailer":"^8.0.2","socket.io":"^4.8.3","sqlite3":"^5.1.7","twilio":"^4.21.0"}}

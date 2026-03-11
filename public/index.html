@@ -1,42 +1,64 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>THW Messenger</title>
+
+<script src="/socket.io/socket.io.js"></script>
 
 <style>
 
 body{
 margin:0;
-font-family:Arial;
-background:#e5ddd5;
+font-family:Arial, Helvetica, sans-serif;
+background:#ece5dd;
 }
 
-/* LOGIN + SIGNUP */
+/* AUTH SCREENS */
 
 .screen{
 display:flex;
-flex-direction:column;
-align-items:center;
 justify-content:center;
+align-items:center;
 height:100vh;
-background:#0cc1b5;
+background:#128C7E;
 }
 
-.screen input{
-padding:10px;
-margin:6px;
-width:220px;
-border:none;
-border-radius:6px;
-}
-
-.screen button{
-padding:10px 20px;
-border:none;
-border-radius:6px;
+.box{
 background:white;
+padding:35px;
+border-radius:10px;
+width:320px;
+box-shadow:0 10px 25px rgba(0,0,0,0.25);
+text-align:center;
+}
+
+.title{
+font-size:28px;
+font-weight:bold;
+color:#128C7E;
+margin-bottom:20px;
+}
+
+input{
+width:100%;
+padding:12px;
+margin-bottom:10px;
+border-radius:6px;
+border:1px solid #ccc;
+font-size:14px;
+}
+
+button{
+width:100%;
+padding:12px;
+border:none;
+border-radius:6px;
+background:#25D366;
+color:white;
+font-size:16px;
 cursor:pointer;
-margin-top:10px;
 }
 
 /* CHAT */
@@ -51,23 +73,50 @@ display:flex;
 height:100%;
 }
 
+/* USERS */
+
 #usersPanel{
-width:250px;
-background:#0cc1b5;
+width:30%;
+background:#075E54;
 color:white;
-padding:10px;
 overflow-y:auto;
 }
 
-.user{
-padding:10px;
-cursor:pointer;
+#usersPanel h3{
+padding:15px;
+margin:0;
 border-bottom:1px solid rgba(255,255,255,0.2);
 }
 
-.user:hover{
-background:rgba(255,255,255,0.2);
+.user{
+display:flex;
+align-items:center;
+padding:12px;
+cursor:pointer;
+border-bottom:1px solid rgba(255,255,255,0.1);
 }
+
+.user:hover{
+background:rgba(255,255,255,0.1);
+}
+
+.avatar{
+width:35px;
+height:35px;
+border-radius:50%;
+background:#ccc;
+margin-right:10px;
+}
+
+.online{
+width:10px;
+height:10px;
+background:#25D366;
+border-radius:50%;
+margin-left:auto;
+}
+
+/* CHAT AREA */
 
 #chatArea{
 flex:1;
@@ -75,48 +124,73 @@ display:flex;
 flex-direction:column;
 }
 
-#header{
-background:#0cc1b5;
+#chatHeader{
+background:#075E54;
 color:white;
 padding:15px;
-font-size:20px;
+font-size:18px;
 }
 
 #messages{
 flex:1;
 overflow-y:auto;
-padding:10px;
+padding:15px;
+display:flex;
+flex-direction:column;
 }
 
+/* MESSAGES */
+
 .message{
-background:white;
-padding:8px;
-margin:6px;
-border-radius:6px;
-max-width:60%;
+padding:10px 14px;
+border-radius:10px;
+margin-bottom:10px;
+max-width:65%;
+font-size:14px;
 }
+
+.me{
+align-self:flex-end;
+background:#DCF8C6;
+}
+
+.them{
+align-self:flex-start;
+background:white;
+}
+
+.time{
+font-size:10px;
+color:gray;
+text-align:right;
+}
+
+/* INPUT BAR */
 
 #inputBar{
 display:flex;
 padding:10px;
 background:#f0f0f0;
+align-items:center;
 }
 
-#messageInput{
+#msg{
 flex:1;
-padding:10px;
+padding:12px;
 border-radius:20px;
 border:none;
 }
 
-#sendBtn{
-background:#0cc1b5;
-color:white;
-border:none;
-padding:10px 15px;
-border-radius:20px;
+.icon{
+font-size:20px;
 margin-left:10px;
 cursor:pointer;
+}
+
+#typing{
+font-size:12px;
+padding-left:15px;
+color:#666;
 }
 
 </style>
@@ -124,58 +198,45 @@ cursor:pointer;
 
 <body>
 
+<!-- SIGNUP -->
+
+<div id="signupScreen" class="screen">
+
+<div class="box">
+
+<div class="title">THW Messenger</div>
+
+<input id="suUser" placeholder="Username">
+<input id="suEmail" placeholder="Email">
+<input id="suPhone" placeholder="Phone">
+<input id="suPass" type="password" placeholder="Password">
+
+<button onclick="sendCode()">Send Verification Code</button>
+
+<input id="otp" placeholder="Verification Code">
+
+<button onclick="signup()">Create Account</button>
+
+<p>Already have account? <a href="#" onclick="showLogin()">Login</a></p>
+
+</div>
+
+</div>
+
 <!-- LOGIN -->
 
-<div id="loginScreen" class="screen">
+<div id="loginScreen" class="screen" style="display:none">
 
-<h1 style="font-size:70px;color:white;margin-bottom:10px;">
-THW Messenger
-</h1>
+<div class="box">
 
-<p style="color:white;font-size:18px;margin-bottom:30px;">
-Welcome to THW Messenger
-</p>
+<div class="title">Login</div>
 
 <input id="loginUser" placeholder="Username">
 <input id="loginPass" type="password" placeholder="Password">
 
 <button onclick="login()">Login</button>
 
-<p style="color:white;">
-No account?
-<a href="#" onclick="showSignup()" style="color:white;font-weight:bold;">
-Sign Up
-</a>
-</p>
-
 </div>
-
-<!-- SIGNUP -->
-
-<div id="signupScreen" class="screen" style="display:none;">
-
-<h1 style="font-size:60px;color:white;">THW Messenger</h1>
-
-<h2 style="color:white;">Create Account</h2>
-
-<input id="signupUser" placeholder="Username">
-<input id="signupPass" type="password" placeholder="Password">
-<input id="signupPhone" placeholder="Phone Number">
-
-<input type="file" id="profilePic">
-
-<button onclick="sendCode()">Send Verification Code</button>
-
-<input id="otp" placeholder="Enter Code">
-
-<button onclick="signup()">Create Account</button>
-
-<p style="color:white;">
-Already have account?
-<a href="#" onclick="showLogin()" style="color:white;font-weight:bold;">
-Login
-</a>
-</p>
 
 </div>
 
@@ -185,8 +246,6 @@ Login
 
 <div id="chatContainer">
 
-<!-- USERS -->
-
 <div id="usersPanel">
 
 <h3>Online Users</h3>
@@ -195,98 +254,60 @@ Login
 
 </div>
 
-<!-- CHAT AREA -->
-
 <div id="chatArea">
 
-<div id="header">THW Messenger</div>
+<div id="chatHeader" id="chatUser">Select User</div>
 
 <div id="messages"></div>
 
+<div id="typing"></div>
+
 <div id="inputBar">
 
-<input id="messageInput" placeholder="Type message">
+<input id="msg" placeholder="Type message">
 
-<input type="file" id="fileInput">
+<div class="icon" onclick="sendFile()">📎</div>
 
-<button id="sendBtn" onclick="sendMessage()">Send</button>
+<div class="icon" onclick="recordVoice()">🎤</div>
 
-<button onclick="sendFile()">File</button>
+<div class="icon" onclick="send()">➤</div>
 
-</div>
-
-</div>
+<input type="file" id="fileInput" style="display:none">
 
 </div>
 
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+</div>
+
+</div>
 
 <script>
 
-let socket = io();
+const socket = io()
 
-let username="";
-let selectedUser="";
-
-/* SWITCH SCREENS */
-
-function showSignup(){
-document.getElementById("loginScreen").style.display="none";
-document.getElementById("signupScreen").style.display="flex";
-}
+let username=""
+let currentChat=""
+let recorder
+let audioChunks=[]
+let recording=false
 
 function showLogin(){
-document.getElementById("signupScreen").style.display="none";
-document.getElementById("loginScreen").style.display="flex";
+signupScreen.style.display="none"
+loginScreen.style.display="flex"
 }
 
-/* LOGIN */
-
-async function login(){
-
-let user=document.getElementById("loginUser").value;
-let pass=document.getElementById("loginPass").value;
-
-let res=await fetch("/login",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({username:user,password:pass})
-});
-
-let data=await res.json();
-
-if(data.success){
-
-username=user;
-
-document.getElementById("loginScreen").style.display="none";
-document.getElementById("chatScreen").style.display="block";
-
-socket.emit("join",username);
-
-}else{
-
-alert("Login failed");
-
-}
-
-}
-
-/* SEND SMS */
+/* EMAIL CODE */
 
 async function sendCode(){
-
-let phone=document.getElementById("signupPhone").value;
 
 await fetch("/send-code",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
-body:JSON.stringify({phone})
-});
+body:JSON.stringify({email:suEmail.value})
+})
 
-alert("Verification code sent");
+alert("Verification code sent")
 
 }
 
@@ -294,74 +315,114 @@ alert("Verification code sent");
 
 async function signup(){
 
-let user=document.getElementById("signupUser").value;
-let pass=document.getElementById("signupPass").value;
-let phone=document.getElementById("signupPhone").value;
-
-let form=new FormData();
-
-form.append("username",user);
-form.append("password",pass);
-form.append("phone",phone);
-form.append("profile",document.getElementById("profilePic").files[0]);
-
 let res=await fetch("/signup",{
 method:"POST",
-body:form
-});
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+username:suUser.value,
+password:suPass.value,
+phone:suPhone.value,
+email:suEmail.value,
+code:otp.value
+})
+})
 
-let data=await res.json();
+let data=await res.json()
+
+if(data.success){
+alert("Account created")
+showLogin()
+}else{
+alert("Signup failed")
+}
+
+}
+
+/* LOGIN */
+
+async function login(){
+
+let res=await fetch("/login",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+username:loginUser.value,
+password:loginPass.value
+})
+})
+
+let data=await res.json()
 
 if(data.success){
 
-alert("Account created");
-showLogin();
+username=data.username
+
+loginScreen.style.display="none"
+chatScreen.style.display="block"
+
+socket.emit("join",username)
 
 }else{
 
-alert("User exists");
+alert("Login failed")
 
 }
 
 }
 
-/* USERS LIST */
+/* USER LIST */
 
 socket.on("user list",(users)=>{
 
-let list=document.getElementById("usersList");
-list.innerHTML="";
+usersList.innerHTML=""
 
-users.forEach(user=>{
+users.forEach(u=>{
 
-let div=document.createElement("div");
+if(u!==username){
 
-div.className="user";
-div.innerText=user;
+let div=document.createElement("div")
+
+div.className="user"
+
+div.innerHTML="<div class='avatar'></div>"+u+"<div class='online'></div>"
 
 div.onclick=()=>{
-selectedUser=user;
-};
 
-list.appendChild(div);
+currentChat=u
+chatHeader.innerText=u
 
-});
+}
 
-});
+usersList.appendChild(div)
+
+}
+
+})
+
+})
 
 /* SEND MESSAGE */
+function send(){
 
-function sendMessage(){
+if(!currentChat){
+alert("Select a user first")
+return
+}
 
-let msg=document.getElementById("messageInput").value;
+let text = msg.value.trim()
+
+if(text === "") return
 
 socket.emit("private message",{
 from:username,
-to:selectedUser,
-message:msg
-});
+to:currentChat,
+message:text,
+type:"text"
+})
 
-document.getElementById("messageInput").value="";
+addMessage(text,true)
+
+msg.value=""
 
 }
 
@@ -369,45 +430,95 @@ document.getElementById("messageInput").value="";
 
 socket.on("private message",(data)=>{
 
-let div=document.createElement("div");
-div.className="message";
+addMessage(data.message,false)
 
-if(data.message.startsWith("FILE:")){
+socket.emit("read",{to:data.from})
 
-let file=data.message.replace("FILE:","");
-div.innerHTML=data.from + ": <a href='/uploads/"+file+"' target='_blank'>Download File</a>";
+})
 
-}else{
+/* TYPING */
 
-div.innerText=data.from + ": " + data.message;
+msg.addEventListener("input",()=>{
+
+socket.emit("typing",{to:currentChat,from:username})
+
+})
+
+socket.on("typing",(data)=>{
+
+typing.innerText=data.from+" typing..."
+
+setTimeout(()=>typing.innerText="",1500)
+
+})
+
+/* ADD MESSAGE */
+
+function addMessage(text,me){
+
+let div=document.createElement("div")
+
+div.className="message "+(me?"me":"them")
+
+div.innerHTML=text+"<div class='time'>"+new Date().toLocaleTimeString()+"</div>"
+
+messages.appendChild(div)
+
+messages.scrollTop=messages.scrollHeight
 
 }
 
-document.getElementById("messages").appendChild(div);
+/* FILE */
 
-});
+function sendFile(){
+fileInput.click()
+}
 
-/* FILE SEND */
+/* VOICE */
 
-async function sendFile(){
+async function recordVoice(){
 
-let file=document.getElementById("fileInput").files[0];
+if(!recording){
 
-let form=new FormData();
-form.append("file",file);
+let stream=await navigator.mediaDevices.getUserMedia({audio:true})
 
-let res=await fetch("/upload",{
-method:"POST",
-body:form
-});
+recorder=new MediaRecorder(stream)
 
-let data=await res.json();
+recorder.start()
+
+audioChunks=[]
+recording=true
+
+recorder.ondataavailable=e=>audioChunks.push(e.data)
+
+}else{
+
+recorder.stop()
+
+recorder.onstop=async()=>{
+
+let blob=new Blob(audioChunks)
+
+let form=new FormData()
+
+form.append("file",blob,"voice.webm")
+
+let res=await fetch("/upload",{method:"POST",body:form})
+
+let data=await res.json()
 
 socket.emit("private message",{
 from:username,
-to:selectedUser,
-message:"FILE:"+data.file
-});
+to:currentChat,
+message:"Voice: "+data.file,
+type:"voice"
+})
+
+}
+
+recording=false
+
+}
 
 }
 

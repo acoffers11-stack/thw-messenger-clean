@@ -1,254 +1,283 @@
-const express = require("express");
-const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
-const sqlite3 = require("sqlite3").verbose();
-const multer = require("multer");
-const twilio = require("twilio");
+const express = require("express")
+const http = require("http")
+const {Server} = require("socket.io")
+const sqlite3 = require("sqlite3").verbose()
+const bodyParser = require("body-parser")
+const multer = require("multer")
+const nodemailer = require("nodemailer")
+const path = require("path")
 
-/* -------------------------
-TWILIO SETTINGS
-------------------------- */
+const app = express()
+const server = http.createServer(app)
+const io = new Server(server)
 
-const ACCOUNT_SID = process.env.TWILIO_SID;
-const AUTH_TOKEN = process.env.TWILIO_AUTH;
-const TWILIO_PHONE = process.env.TWILIO_PHONE;
+app.use(bodyParser.json())
+app.use(express.static("public"))
+app.use("/uploads", express.static("uploads"))
+app.use("/profiles", express.static("profiles"))
 
-let client;
+/* DATABASE */
 
-if (ACCOUNT_SID && AUTH_TOKEN) {
-client = twilio(ACCOUNT_SID, AUTH_TOKEN);
-}
+const db = new sqlite3.Database("chat.db")
 
-/* -------------------------
-SERVER SETUP
-------------------------- */
-
-app.use(express.static("public"));
-app.use(express.json());
-
-/* -------------------------
-FILE STORAGE
-------------------------- */
-
-const storage = multer.diskStorage({
-destination: function (req, file, cb) {
-if (file.fieldname === "profile") {
-cb(null, "profiles/");
-} else {
-cb(null, "uploads/");
-}
-},
-filename: function (req, file, cb) {
-cb(null, Date.now() + "-" + file.originalname);
-}
-});
-
-const upload = multer({ storage });
-
-app.use("/uploads", express.static("uploads"));
-app.use("/profiles", express.static("profiles"));
-
-/* -------------------------
-DATABASE
-------------------------- */
-
-const db = new sqlite3.Database("chat.db");
+db.serialize(()=>{
 
 db.run(`CREATE TABLE IF NOT EXISTS users(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 username TEXT UNIQUE,
 password TEXT,
+email TEXT,
 phone TEXT,
 profilePic TEXT
-)`);
+)`)
 
 db.run(`CREATE TABLE IF NOT EXISTS messages(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
 sender TEXT,
 receiver TEXT,
-message TEXT
-)`);
+message TEXT,
+type TEXT,
+time TEXT,
+status TEXT
+)`)
 
-/* -------------------------
-OTP STORAGE
-------------------------- */
+db.run(`CREATE TABLE IF NOT EXISTS groups(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+name TEXT
+)`)
 
-let verificationCodes = {};
+db.run(`CREATE TABLE IF NOT EXISTS group_members(
+groupId INTEGER,
+username TEXT
+)`)
 
-/* -------------------------
-SEND SMS CODE
-------------------------- */
+})
 
-app.post("/send-code", (req, res) => {
+/* EMAIL */
 
-const { phone } = req.body;
-
-if (!client) {
-return res.json({ success: false });
+const transporter = nodemailer.createTransport({
+service:"gmail",
+auth:{
+user:"acoffers11@gmail.com",
+pass:"qybsmaacspwcyyrv"
 }
+})
 
-let code = Math.floor(100000 + Math.random() * 900000);
+let emailCodes = {}
 
-verificationCodes[phone] = code;
+/* FILE UPLOAD */
 
-client.messages.create({
-body: "Your verification code is: " + code,
-from: TWILIO_PHONE,
-to: phone
-}).then(() => {
+const storage = multer.diskStorage({
+destination:(req,file,cb)=>cb(null,"uploads/"),
+filename:(req,file,cb)=>cb(null,Date.now()+"-"+file.originalname)
+})
 
-res.json({ success: true });
+const upload = multer({storage})
 
-}).catch(() => {
+const profileStorage = multer.diskStorage({
+destination:(req,file,cb)=>cb(null,"profiles/"),
+filename:(req,file,cb)=>cb(null,Date.now()+"-"+file.originalname)
+})
 
-res.json({ success: false });
+const profileUpload = multer({storage:profileStorage})
 
-});
+/* ROUTES */
 
-});
+app.post("/send-code",(req,res)=>{
 
-/* -------------------------
-VERIFY CODE
-------------------------- */
+const email = req.body.email
+const code = Math.floor(100000+Math.random()*900000)
 
-app.post("/verify-code", (req, res) => {
+emailCodes[email]=code
 
-const { phone, code } = req.body;
+transporter.sendMail({
+from:"THW Messenger",
+to:email,
+subject:"Verification Code",
+text:"Your verification code: "+code
+})
 
-if (verificationCodes[phone] == code) {
-res.json({ success: true });
-} else {
-res.json({ success: false });
-}
+res.json({success:true})
 
-});
+})
 
-/* -------------------------
-SIGNUP
-------------------------- */
+app.post("/signup",(req,res)=>{
 
-app.post("/signup", upload.single("profile"), (req, res) => {
+const {username,password,email,phone,code}=req.body
 
-const username = req.body.username;
-const password = req.body.password;
-const phone = req.body.phone;
-
-let profilePic = "";
-
-if (req.file) {
-profilePic = req.file.filename;
+if(emailCodes[email]!=code){
+return res.json({success:false})
 }
 
 db.run(
-"INSERT INTO users(username,password,phone,profilePic) VALUES(?,?,?,?)",
-[username, password, phone, profilePic],
-function (err) {
+"INSERT INTO users(username,password,email,phone) VALUES(?,?,?,?)",
+[username,password,email,phone],
+(err)=>{
 
-if (err) {
-res.json({ success: false });
-} else {
-res.json({ success: true });
+if(err){
+return res.json({success:false})
 }
 
-});
+res.json({success:true})
 
-});
+})
 
-/* -------------------------
-LOGIN
-------------------------- */
+})
 
-app.post("/login", (req, res) => {
+app.post("/login",(req,res)=>{
 
-const { username, password } = req.body;
+const {username,password}=req.body
 
 db.get(
 "SELECT * FROM users WHERE username=? AND password=?",
-[username, password],
-function (err, row) {
+[username,password],
+(err,row)=>{
 
-if (row) {
-
-res.json({
-success: true,
-username: row.username,
-profilePic: row.profilePic
-});
-
-} else {
-
-res.json({ success: false });
-
+if(row){
+res.json({success:true,username})
+}else{
+res.json({success:false})
 }
 
-});
+})
 
-});
+})
 
-/* -------------------------
-FILE UPLOAD
-------------------------- */
+app.post("/upload",upload.single("file"),(req,res)=>{
 
-app.post("/upload", upload.single("file"), (req, res) => {
+res.json({file:req.file.filename})
 
-res.json({ file: req.file.filename });
+})
 
-});
+app.post("/upload-profile",profileUpload.single("photo"),(req,res)=>{
 
-/* -------------------------
-REALTIME CHAT
-------------------------- */
+res.json({file:req.file.filename})
 
-let users = {};
+})
 
-io.on("connection", (socket) => {
+/* SOCKETS */
 
-socket.on("join", (username) => {
+let users = {}
 
-users[username] = socket.id;
+io.on("connection",(socket)=>{
 
-io.emit("user list", Object.keys(users));
+socket.on("join",(username)=>{
 
-});
+users[username]=socket.id
 
-socket.on("private message", (data) => {
+io.emit("user list",Object.keys(users))
 
-let target = users[data.to];
+})
+
+socket.on("private message",(data)=>{
+
+const time = new Date().toISOString()
 
 db.run(
-"INSERT INTO messages(sender,receiver,message) VALUES(?,?,?)",
-[data.from, data.to, data.message]
-);
+"INSERT INTO messages(sender,receiver,message,type,time,status) VALUES(?,?,?,?,?,?)",
+[
+data.from,
+data.to,
+data.message,
+data.type || "text",
+time,
+"sent"
+]
+)
 
-if (target) {
-io.to(target).emit("private message", data);
+let target = users[data.to]
+
+if(target){
+
+io.to(target).emit("private message",data)
+
+io.to(socket.id).emit("delivered",{to:data.to})
+
 }
 
-});
+})
 
-socket.on("disconnect", () => {
+socket.on("typing",(data)=>{
 
-for (let user in users) {
+let target = users[data.to]
 
-if (users[user] === socket.id) {
-delete users[user];
+if(target){
+io.to(target).emit("typing",data)
 }
 
+})
+
+socket.on("read",(data)=>{
+
+let target = users[data.to]
+
+if(target){
+io.to(target).emit("read",data)
 }
 
-io.emit("user list", Object.keys(users));
+})
 
-});
+/* GROUP CHAT */
 
-});
+socket.on("create group",(data)=>{
 
-/* -------------------------
-START SERVER
-------------------------- */
+db.run(
+"INSERT INTO groups(name) VALUES(?)",
+[data.name],
+function(){
 
-const PORT = process.env.PORT || 3000;
+const groupId = this.lastID
 
-http.listen(PORT, () => {
-console.log("Server running on port " + PORT);
-});
+data.members.forEach(m=>{
+db.run(
+"INSERT INTO group_members(groupId,username) VALUES(?,?)",
+[groupId,m]
+)
+})
+
+}
+
+)
+
+})
+
+socket.on("group message",(data)=>{
+
+db.all(
+"SELECT username FROM group_members WHERE groupId=?",
+[data.groupId],
+(err,rows)=>{
+
+rows.forEach(r=>{
+
+let id = users[r.username]
+
+if(id){
+io.to(id).emit("group message",data)
+}
+
+})
+
+})
+
+})
+
+socket.on("disconnect",()=>{
+
+for(let u in users){
+if(users[u]==socket.id){
+delete users[u]
+}
+}
+
+io.emit("user list",Object.keys(users))
+
+})
+
+})
+
+/* SERVER */
+
+server.listen(3000,()=>{
+console.log("Server running on port 3000")
+})

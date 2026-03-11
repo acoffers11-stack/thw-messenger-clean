@@ -278,6 +278,8 @@ io.emit("user list",Object.keys(users))
 
 /* SERVER */
 
-server.listen(3000,()=>{
-console.log("Server running on port 3000")
-})
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+console.log("Server running on port " + PORT);
+});

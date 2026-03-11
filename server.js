@@ -10,10 +10,14 @@ const twilio = require("twilio");
 TWILIO SETTINGS
 ------------------------- */
 
+const ACCOUNT_SID = process.env.TWILIO_SID;
+const AUTH_TOKEN = process.env.TWILIO_AUTH;
+const TWILIO_PHONE = process.env.TWILIO_PHONE;
+
 let client;
 
-if(process.env.TWILIO_SID && process.env.TWILIO_AUTH){
-client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
+if (ACCOUNT_SID && AUTH_TOKEN) {
+client = twilio(ACCOUNT_SID, AUTH_TOKEN);
 }
 
 /* -------------------------
@@ -24,7 +28,7 @@ app.use(express.static("public"));
 app.use(express.json());
 
 /* -------------------------
-FILE + PROFILE STORAGE
+FILE STORAGE
 ------------------------- */
 
 const storage = multer.diskStorage({
@@ -56,8 +60,7 @@ id INTEGER PRIMARY KEY AUTOINCREMENT,
 username TEXT UNIQUE,
 password TEXT,
 phone TEXT,
-profilePic TEXT,
-verified INTEGER DEFAULT 0
+profilePic TEXT
 )`);
 
 db.run(`CREATE TABLE IF NOT EXISTS messages(
@@ -81,25 +84,26 @@ app.post("/send-code", (req, res) => {
 
 const { phone } = req.body;
 
+if (!client) {
+return res.json({ success: false });
+}
+
 let code = Math.floor(100000 + Math.random() * 900000);
 
 verificationCodes[phone] = code;
-
-if(!client){
-return res.json({success:false,message:"SMS not configured"});
-}
 
 client.messages.create({
 body: "Your verification code is: " + code,
 from: TWILIO_PHONE,
 to: phone
-})
-.then(() => {
+}).then(() => {
+
 res.json({ success: true });
-})
-.catch(err => {
-console.log(err);
+
+}).catch(() => {
+
 res.json({ success: false });
+
 });
 
 });
@@ -121,7 +125,7 @@ res.json({ success: false });
 });
 
 /* -------------------------
-SIGNUP WITH PROFILE PIC
+SIGNUP
 ------------------------- */
 
 app.post("/signup", upload.single("profile"), (req, res) => {
@@ -147,8 +151,7 @@ res.json({ success: false });
 res.json({ success: true });
 }
 
-}
-);
+});
 
 });
 
@@ -179,8 +182,7 @@ res.json({ success: false });
 
 }
 
-}
-);
+});
 
 });
 
@@ -210,8 +212,6 @@ io.emit("user list", Object.keys(users));
 
 });
 
-/* PRIVATE MESSAGE */
-
 socket.on("private message", (data) => {
 
 let target = users[data.to];
@@ -227,14 +227,14 @@ io.to(target).emit("private message", data);
 
 });
 
-/* DISCONNECT */
-
 socket.on("disconnect", () => {
 
 for (let user in users) {
+
 if (users[user] === socket.id) {
 delete users[user];
 }
+
 }
 
 io.emit("user list", Object.keys(users));

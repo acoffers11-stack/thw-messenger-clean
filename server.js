@@ -56,13 +56,12 @@ username TEXT
 /* EMAIL */
 
 const transporter = nodemailer.createTransport({
-service:"gmail",
-auth:{
-user:"acoffers11@gmail.com",
-pass:"qybsmaacspwcyyrv"
+service: "gmail",
+auth: {
+user: process.env.EMAIL_USER,
+pass: process.env.EMAIL_PASS
 }
 })
-
 let emailCodes = {}
 
 /* FILE UPLOAD */

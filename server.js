@@ -64,7 +64,7 @@ async function sendVerificationEmail(email, code) {
 try {
 
 await resend.emails.send({
-from: "team@thehimalayanwolf.com",
+from: "Chat App <team@thehimalayanwolf.com>",
 to: email,
 subject: "Your verification code",
 html: `<h1>${code}</h1>`

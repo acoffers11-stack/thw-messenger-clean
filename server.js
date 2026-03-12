@@ -1,10 +1,12 @@
+const { Resend } = require("resend")
+const resend = new Resend("re_Nr4iasaP_F9Sgk3A3RfahHnL2CmZ99LX3")
+
 const express = require("express")
 const http = require("http")
-const {Server} = require("socket.io")
+const { Server } = require("socket.io")
 const sqlite3 = require("sqlite3").verbose()
 const bodyParser = require("body-parser")
 const multer = require("multer")
-const nodemailer = require("nodemailer")
 const path = require("path")
 
 const app = express()
@@ -20,7 +22,7 @@ app.use("/profiles", express.static("profiles"))
 
 const db = new sqlite3.Database("chat.db")
 
-db.serialize(()=>{
+db.serialize(() => {
 
 db.run(`CREATE TABLE IF NOT EXISTS users(
 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,18 +55,52 @@ username TEXT
 
 })
 
-/* EMAIL */
+/* EMAIL VERIFICATION (RESEND) */
 
-const transporter = nodemailer.createTransport({
-host: "smtp.gmail.com",
-port: 465,
-secure: true,
-auth: {
-user: process.env.EMAIL_USER,
-pass: process.env.EMAIL_PASS
-}
-})
 let emailCodes = {}
+
+async function sendVerificationEmail(email, code) {
+
+try {
+
+await resend.emails.send({
+from: "Chat App <onboarding@resend.dev>",
+to: email,
+subject: "Your Verification Code",
+html: `
+<div style="font-family:Arial;text-align:center">
+<h2>Your verification code</h2>
+<h1>${code}</h1>
+<p>This code expires in 5 minutes</p>
+</div>
+`
+})
+
+console.log("Verification email sent")
+
+} catch (err) {
+
+console.error("Email error:", err)
+
+}
+
+}
+
+/* SEND CODE ROUTE */
+
+app.post("/send-code", async (req,res)=>{
+
+const {email} = req.body
+
+const code = Math.floor(100000 + Math.random() * 900000)
+
+emailCodes[email] = code
+
+await sendVerificationEmail(email, code)
+
+res.json({success:true})
+
+})
 
 /* FILE UPLOAD */
 
@@ -82,31 +118,13 @@ filename:(req,file,cb)=>cb(null,Date.now()+"-"+file.originalname)
 
 const profileUpload = multer({storage:profileStorage})
 
-/* ROUTES */
-
-app.post("/send-code",(req,res)=>{
-
-const email = req.body.email
-const code = Math.floor(100000+Math.random()*900000)
-
-emailCodes[email]=code
-
-transporter.sendMail({
-from:"THW Messenger",
-to:email,
-subject:"Verification Code",
-text:"Your verification code: "+code
-})
-
-res.json({success:true})
-
-})
+/* SIGNUP */
 
 app.post("/signup",(req,res)=>{
 
 const {username,password,email,phone,code}=req.body
 
-if(emailCodes[email]!=code){
+if(emailCodes[email] != code){
 return res.json({success:false})
 }
 
@@ -119,11 +137,15 @@ if(err){
 return res.json({success:false})
 }
 
+delete emailCodes[email]
+
 res.json({success:true})
 
 })
 
 })
+
+/* LOGIN */
 
 app.post("/login",(req,res)=>{
 
@@ -143,6 +165,8 @@ res.json({success:false})
 })
 
 })
+
+/* FILE UPLOAD */
 
 app.post("/upload",upload.single("file"),(req,res)=>{
 
@@ -279,8 +303,10 @@ io.emit("user list",Object.keys(users))
 
 /* SERVER */
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000
 
 server.listen(PORT, () => {
-console.log("Server running on port " + PORT);
-});
+
+console.log("Server running on port " + PORT)
+
+})

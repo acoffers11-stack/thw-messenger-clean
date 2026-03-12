@@ -1,5 +1,5 @@
 const { Resend } = require("resend")
-const resend = new Resend("re_Nr4iasaP_F9Sgk3A3RfahHnL2CmZ99LX3")
+const resend = new Resend("re_HYPJqGeS_JDyF3wLJ1re1hWBFTdAW7kLd")
 
 const express = require("express")
 const http = require("http")
@@ -66,21 +66,15 @@ try {
 await resend.emails.send({
 from: "Chat App <onboarding@resend.dev>",
 to: email,
-subject: "Your Verification Code",
-html: `
-<div style="font-family:Arial;text-align:center">
-<h2>Your verification code</h2>
-<h1>${code}</h1>
-<p>This code expires in 5 minutes</p>
-</div>
-`
+subject: "Your verification code",
+html: `<h1>${code}</h1>`
 })
 
-console.log("Verification email sent")
+console.log("Email sent to", email)
 
 } catch (err) {
 
-console.error("Email error:", err)
+console.log("Email error:", err)
 
 }
 

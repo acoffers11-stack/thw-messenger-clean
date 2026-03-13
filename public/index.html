@@ -236,6 +236,11 @@ margin-bottom:2px;
 font-size:10px;
 }
 
+.tabScreen{
+height: calc(100vh - 60px);
+overflow-y:auto;
+}
+
 </style>
 </head>
 
@@ -285,41 +290,71 @@ font-size:10px;
 
 <!-- CHAT -->
 
-<div id="chatScreen">
+<div id="app" style="display:none; height:100vh; position:relative;">
 
-<div id="chatContainer">
+	<!-- CHATS SCREEN -->
+	<div id="chatsScreen" class="tabScreen">
+		<div id="chatContainer">
+			<div id="usersPanel">
+				<h3>Chats</h3>
+				<div id="chatsList"></div>
+			</div>
+			<div id="chatArea">
+				<div id="chatHeader">Select Chat</div>
+				<div id="messages"></div>
+				<div id="typing"></div>
+				<div id="inputBar">
+					<input id="msg" placeholder="Type message">
+					<div class="icon" onclick="sendFile()">📎</div>
+					<div class="icon" onclick="recordVoice()">🎤</div>
+					<div class="icon" onclick="send()">➤</div>
+					<input type="file" id="fileInput" style="display:none">
+				</div>
+			</div>
+		</div>
+	</div>
 
-<div id="usersPanel">
+	<!-- CALLS SCREEN -->
+	<div id="callsScreen" class="tabScreen" style="display:none;">
+		<div style="padding:20px;">
+			<h2>Calls</h2>
+			<div id="callLogs"></div>
+			<button onclick="startCall()">Start New Call</button>
+		</div>
+	</div>
 
-<h3>Online Users</h3>
+	<!-- STATUS SCREEN -->
+	<div id="statusScreen" class="tabScreen" style="display:none;">
+		<div style="padding:20px;">
+			<h2>Status</h2>
+			<p>Status updates coming soon...</p>
+		</div>
+	</div>
 
-<div id="usersList"></div>
-
-</div>
-
-<div id="chatArea">
-
-<div id="chatHeader" id="chatUser">Select User</div>
-
-<div id="messages"></div>
-
-<div id="typing"></div>
-
-<div id="inputBar">
-
-<input id="msg" placeholder="Type message">
-
-<div class="icon" onclick="sendFile()">📎</div>
-
-<div class="icon" onclick="recordVoice()">🎤</div>
-
-<div class="icon" onclick="send()">➤</div>
-
-<input type="file" id="fileInput" style="display:none">
-
-</div>
-
-</div>
+	<!-- SETTINGS SCREEN -->
+	<div id="settingsScreen" class="tabScreen" style="display:none;">
+		<div style="padding:20px;">
+			<h2>Settings</h2>
+			<div>
+				<h3>Profile</h3>
+				<img id="profilePic" src="" alt="Profile" style="width:50px; height:50px; border-radius:50%;">
+				<button onclick="changeProfilePic()">Change Profile Picture</button>
+			</div>
+			<div>
+				<h3>Privacy</h3>
+				<label><input type="checkbox" id="readReceipts"> Read Receipts</label>
+				<label><input type="checkbox" id="lastSeen"> Last Seen</label>
+			</div>
+			<div>
+				<h3>Data</h3>
+				<button onclick="downloadData()">Download Your Data</button>
+			</div>
+			<div>
+				<h3>Other</h3>
+				<button onclick="logout()">Logout</button>
+			</div>
+		</div>
+	</div>
 
 	<!-- BOTTOM NAVIGATION -->
 	<div id="bottomNav">
@@ -417,7 +452,7 @@ if(data.success){
 username=data.username
 
 loginScreen.style.display="none"
-chatScreen.style.display="block"
+app.style.display="block"
 
 socket.emit("join",username)
 
@@ -433,7 +468,12 @@ alert("Login failed")
 
 socket.on("user list",(users)=>{
 
-usersList.innerHTML=""
+chatsList.innerHTML=""
+
+if(users.length === 0){
+chatsList.innerHTML="<p>No recent chats</p>"
+return
+}
 
 users.forEach(u=>{
 
@@ -449,10 +489,23 @@ div.onclick=()=>{
 
 currentChat=u
 chatHeader.innerText=u
+messages.innerHTML = "";
+
+// Load history
+let history = JSON.parse(localStorage.getItem('chatHistory') || '{}');
+if(history[u]){
+	history[u].forEach(msg => {
+		let div=document.createElement("div")
+		div.className="message "+(msg.me?"me":"them")
+		div.innerHTML=msg.text+"<div class='time'>"+new Date(msg.time).toLocaleTimeString()+"</div>"
+		messages.appendChild(div)
+	});
+	messages.scrollTop=messages.scrollHeight
+}
 
 }
 
-usersList.appendChild(div)
+chatsList.appendChild(div)
 
 }
 
@@ -525,6 +578,12 @@ messages.appendChild(div)
 
 messages.scrollTop=messages.scrollHeight
 
+// Save to history
+let history = JSON.parse(localStorage.getItem('chatHistory') || '{}');
+if(!history[currentChat]) history[currentChat] = [];
+history[currentChat].push({text, me, time: new Date().toISOString()});
+localStorage.setItem('chatHistory', JSON.stringify(history));
+
 }
 
 /* FILE */
@@ -587,10 +646,96 @@ document.querySelectorAll('.navItem').forEach(item => {
 	item.addEventListener('click', () => {
 		document.querySelectorAll('.navItem').forEach(i => i.classList.remove('active'));
 		item.classList.add('active');
-		// Here you can add logic to switch screens
-		alert(item.id + ' clicked');
+		document.querySelectorAll('.tabScreen').forEach(s => s.style.display = 'none');
+		let screenId = item.id.replace('Tab', 'Screen');
+		document.getElementById(screenId).style.display = 'block';
+		if(screenId === 'callsScreen') loadCallLogs();
 	});
 });
+
+/* CALLS */
+
+function startCall(){
+	let user = prompt("Enter username to call:");
+	if(user){
+		// Simulate call
+		alert("Calling " + user);
+		// Add to call logs
+		let log = document.createElement("div");
+		log.textContent = "Called " + user + " at " + new Date().toLocaleString();
+		callLogs.appendChild(log);
+		// Save to localStorage
+		let logs = JSON.parse(localStorage.getItem('callLogs') || '[]');
+		logs.push({user, time: new Date().toISOString()});
+		localStorage.setItem('callLogs', JSON.stringify(logs));
+	}
+}
+
+function loadCallLogs(){
+	callLogs.innerHTML = "";
+	let logs = JSON.parse(localStorage.getItem('callLogs') || '[]');
+	if(logs.length === 0){
+		callLogs.innerHTML = "<p>No call logs</p>";
+	}else{
+		logs.forEach(log => {
+			let div = document.createElement("div");
+			div.textContent = "Called " + log.user + " at " + new Date(log.time).toLocaleString();
+			callLogs.appendChild(div);
+		});
+	}
+}
+
+/* SETTINGS */
+
+function changeProfilePic(){
+	let input = document.createElement("input");
+	input.type = "file";
+	input.accept = "image/*";
+	input.onchange = e => {
+		let file = e.target.files[0];
+		if(file){
+			let reader = new FileReader();
+			reader.onload = () => {
+				profilePic.src = reader.result;
+				localStorage.setItem('profilePic', reader.result);
+			};
+			reader.readAsDataURL(file);
+		}
+	};
+	input.click();
+}
+
+function downloadData(){
+	let data = {
+		username,
+		profilePic: localStorage.getItem('profilePic'),
+		callLogs: JSON.parse(localStorage.getItem('callLogs') || '[]'),
+		// Add chat history if stored
+	};
+	let blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+	let url = URL.createObjectURL(blob);
+	let a = document.createElement("a");
+	a.href = url;
+	a.download = "mydata.json";
+	a.click();
+}
+
+function logout(){
+	localStorage.clear();
+	location.reload();
+}
+
+// Load data on start
+window.onload = () => {
+	let pic = localStorage.getItem('profilePic');
+	if(pic) profilePic.src = pic;
+	loadCallLogs();
+	readReceipts.checked = localStorage.getItem('readReceipts') === 'true';
+	lastSeen.checked = localStorage.getItem('lastSeen') === 'true';
+};
+
+readReceipts.addEventListener('change', () => localStorage.setItem('readReceipts', readReceipts.checked));
+lastSeen.addEventListener('change', () => localStorage.setItem('lastSeen', lastSeen.checked));
 
 </script>
 

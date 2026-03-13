@@ -66,6 +66,7 @@ cursor:pointer;
 #chatScreen{
 display:none;
 height:100vh;
+position:relative;
 }
 
 #chatContainer{
@@ -193,6 +194,48 @@ padding-left:15px;
 color:#666;
 }
 
+/* BOTTOM NAVIGATION */
+
+#bottomNav{
+position:absolute;
+bottom:0;
+width:100%;
+background:#075E54;
+display:flex;
+justify-content:space-around;
+align-items:center;
+padding:10px 0;
+}
+
+.navItem{
+display:flex;
+flex-direction:column;
+align-items:center;
+cursor:pointer;
+color:white;
+font-size:12px;
+padding:5px;
+border-radius:10px;
+transition:background 0.2s;
+}
+
+.navItem:hover{
+background:rgba(255,255,255,0.1);
+}
+
+.navItem.active{
+color:#25D366;
+}
+
+.navIcon{
+font-size:20px;
+margin-bottom:2px;
+}
+
+.navLabel{
+font-size:10px;
+}
+
 </style>
 </head>
 
@@ -278,9 +321,25 @@ color:#666;
 
 </div>
 
-</div>
-
-</div>
+	<!-- BOTTOM NAVIGATION -->
+	<div id="bottomNav">
+		<div class="navItem" id="statusTab">
+			<div class="navIcon">⭕</div>
+			<div class="navLabel">Status</div>
+		</div>
+		<div class="navItem active" id="chatsTab">
+			<div class="navIcon">💬</div>
+			<div class="navLabel">Chats</div>
+		</div>
+		<div class="navItem" id="callsTab">
+			<div class="navIcon">📞</div>
+			<div class="navLabel">Calls</div>
+		</div>
+		<div class="navItem" id="settingsTab">
+			<div class="navIcon">⚙️</div>
+			<div class="navLabel">Settings</div>
+		</div>
+	</div>
 
 <script>
 
@@ -521,6 +580,17 @@ recording=false
 }
 
 }
+
+/* BOTTOM NAV */
+
+document.querySelectorAll('.navItem').forEach(item => {
+	item.addEventListener('click', () => {
+		document.querySelectorAll('.navItem').forEach(i => i.classList.remove('active'));
+		item.classList.add('active');
+		// Here you can add logic to switch screens
+		alert(item.id + ' clicked');
+	});
+});
 
 </script>
 

@@ -279,7 +279,7 @@ overflow-y:auto;
 
 <div class="title">Login</div>
 
-<input id="loginUser" placeholder="Username">
+<input id="loginUser" placeholder="Username or Email">
 <input id="loginPass" type="password" placeholder="Password">
 
 <button onclick="login()">Login</button>
@@ -427,7 +427,7 @@ if(data.success){
 alert("Account created")
 showLogin()
 }else{
-alert("Signup failed")
+alert(data.message || "Signup failed")
 }
 
 }
@@ -458,7 +458,7 @@ socket.emit("join",username)
 
 }else{
 
-alert("Login failed")
+alert(data.message || "Login failed")
 
 }
 

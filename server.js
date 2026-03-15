@@ -59,6 +59,10 @@ username TEXT
 
 /* EMAIL VERIFICATION (RESEND) */
 
+const normalizeEmail = (email) => {
+  return (email || "").toString().trim().toLowerCase()
+}
+
 let emailCodes = {}
 
 async function sendVerificationEmail(email, code) {
@@ -87,10 +91,11 @@ console.log("Email error:", err)
 app.post("/send-code", async (req,res)=>{
 
 const {email} = req.body
+const normalized = normalizeEmail(email)
 
-const code = Math.floor(100000 + Math.random() * 900000)
+const code = String(Math.floor(100000 + Math.random() * 900000)).padStart(6, "0")
 
-emailCodes[email] = code
+emailCodes[normalized] = code
 
 await sendVerificationEmail(email, code)
 
@@ -119,8 +124,9 @@ const profileUpload = multer({storage:profileStorage})
 app.post("/signup",async (req,res)=>{
 
 const {username,password,email,phone,code}=req.body
+const normalized = normalizeEmail(email)
 
-if(emailCodes[email] != code){
+if(!code || !emailCodes[normalized] || String(code).trim() !== String(emailCodes[normalized])){
 	return res.json({success:false, message: 'Invalid verification code'})
 }
 
@@ -132,10 +138,14 @@ db.run(
 	(err)=>{
 
 		if(err){
-			return res.json({success:false, message: 'Unable to create account'})
+			let message = 'Unable to create account'
+			if(err.message && err.message.toLowerCase().includes('unique')){
+				message = 'Username or email already exists'
+			}
+			return res.json({success:false, message})
 		}
 
-		delete emailCodes[email]
+		delete emailCodes[normalized]
 
 		res.json({success:true})
 
@@ -151,20 +161,28 @@ app.post("/login",(req,res)=>{
 
 const {username,password}=req.body
 
+// allow login by username or email
+const identifier = username
+
 db.get(
-"SELECT * FROM users WHERE username=?",
-[username],
+"SELECT * FROM users WHERE username=? OR email=?",
+[identifier, identifier],
 async (err,row)=>{
 
-if(row){
-	const match = await bcrypt.compare(password, row.password)
-	if(match){
-		res.json({success:true,username,profilePic:row.profilePic})
-		return
-	}
+if(err){
+	return res.json({success:false, message:'Database error'})
 }
 
-res.json({success:false})
+if(!row){
+	return res.json({success:false, message:'User not found'})
+}
+
+const match = await bcrypt.compare(password, row.password)
+if(!match){
+	return res.json({success:false, message:'Invalid credentials'})
+}
+
+res.json({success:true,username:row.username,profilePic:row.profilePic})
 
 }
 

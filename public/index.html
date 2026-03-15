@@ -357,7 +357,7 @@ overflow-y:auto;
 	</div>
 
 	<!-- BOTTOM NAVIGATION -->
-	<div id="bottomNav" style="display:none;">
+	<div id="bottomNav">
 		<div class="navItem" id="statusTab">
 			<div class="navIcon">⭕</div>
 			<div class="navLabel">Status</div>
@@ -389,56 +389,6 @@ let recording=false
 function showLogin(){
 signupScreen.style.display="none"
 loginScreen.style.display="flex"
-}
-
-let onlineUsers = []
-let conversations = []
-
-async function loadConversations(){
-	if(!username) return
-	try{
-		let res = await fetch(`/conversations/${encodeURIComponent(username)}`)
-		conversations = await res.json()
-		renderConversations()
-	}catch(e){
-		console.error(e)
-	}
-}
-
-function renderConversations(){
-	chatsList.innerHTML = ""
-	if(!conversations.length){
-		chatsList.innerHTML = "<p>No recent chats</p>"
-		return
-	}
-
-	conversations.forEach(c=>{
-		let div = document.createElement('div')
-		div.className = 'user'
-		let online = onlineUsers.includes(c.contact)
-		div.innerHTML = `<div class='avatar'></div><div style='flex:1'>${c.contact}<div style='font-size:12px;color:#ccc;'>${c.lastMessage || ''}</div></div><div class='online' style='background:${online?"#25D366":"rgba(255,255,255,0.2)"}'></div>`
-		div.onclick = () => loadChat(c.contact)
-		chatsList.appendChild(div)
-	})
-}
-
-async function loadChat(contact){
-	currentChat = contact
-	chatHeader.innerHTML = `<span id='backBtn' onclick='showChats()'>←</span> ${contact}`
-	messages.innerHTML = ''
-	try{
-		let res = await fetch(`/messages?user=${encodeURIComponent(username)}&contact=${encodeURIComponent(contact)}`)
-		let msgs = await res.json()
-		msgs.forEach(m=> addMessage(m.message, m.sender === username))
-		messages.scrollTop = messages.scrollHeight
-		// mark read
-		await fetch('/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:username,contact})})
-	}catch(e){
-		console.error(e)
-	}
-	if(window.innerWidth <= 768){
-		chatArea.classList.add('show');
-	}
 }
 
 /* EMAIL CODE */
@@ -503,15 +453,8 @@ username=data.username
 
 loginScreen.style.display="none"
 app.style.display="block"
-bottomNav.style.display="flex"
-
-if(data.profilePic){
-	profilePic.src = '/profiles/' + data.profilePic
-}
 
 socket.emit("join",username)
-
-loadConversations()
 
 }else{
 
@@ -524,7 +467,6 @@ alert("Login failed")
 /* USER LIST */
 
 socket.on("user list",(users)=>{
-<<<<<<< HEAD
 
 chatsList.innerHTML=""
 
@@ -568,10 +510,6 @@ chatsList.appendChild(div)
 }
 
 })
-=======
-	onlineUsers = users
-	renderConversations()
->>>>>>> c7fa50b9860db92058ab04e9545d84bb353e15ae
 
 })
 
@@ -595,9 +533,6 @@ type:"text"
 })
 
 addMessage(text,true)
-
-// refresh conversation list so last message updates
-loadConversations()
 
 msg.value=""
 
@@ -629,27 +564,6 @@ setTimeout(()=>typing.innerText="",1500)
 
 })
 
-socket.on("call",(data)=>{
-	if(data.to !== username) return
-	let accept = confirm(`${data.from} is calling you. Accept?`)
-	if(accept){
-		socket.emit('call-accepted',{from:username,to:data.from})
-		alert('Call started with ' + data.from)
-	}else{
-		socket.emit('call-declined',{from:username,to:data.from})
-	}
-})
-
-socket.on('call-accepted',(data)=>{
-	if(data.to !== username) return
-	alert(data.from + ' accepted the call')
-})
-
-socket.on('call-declined',(data)=>{
-	if(data.to !== username) return
-	alert(data.from + ' declined the call')
-})
-
 /* ADD MESSAGE */
 
 function addMessage(text,me){
@@ -663,6 +577,12 @@ div.innerHTML=text+"<div class='time'>"+new Date().toLocaleTimeString()+"</div>"
 messages.appendChild(div)
 
 messages.scrollTop=messages.scrollHeight
+
+// Save to history
+let history = JSON.parse(localStorage.getItem('chatHistory') || '{}');
+if(!history[currentChat]) history[currentChat] = [];
+history[currentChat].push({text, me, time: new Date().toISOString()});
+localStorage.setItem('chatHistory', JSON.stringify(history));
 
 }
 
@@ -735,58 +655,51 @@ document.querySelectorAll('.navItem').forEach(item => {
 
 /* CALLS */
 
-async function startCall(){
+function startCall(){
 	let user = prompt("Enter username to call:");
-	if(!user) return
-
-	// Notify server to store call log
-	await fetch('/call',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:username,to:user,type:'audio'})})
-	
-	// Inform remote user
-	socket.emit('call', {from: username, to: user})
-
-	alert('Calling ' + user)
-	loadCallLogs()
+	if(user){
+		// Simulate call
+		alert("Calling " + user);
+		// Add to call logs
+		let log = document.createElement("div");
+		log.textContent = "Called " + user + " at " + new Date().toLocaleString();
+		callLogs.appendChild(log);
+		// Save to localStorage
+		let logs = JSON.parse(localStorage.getItem('callLogs') || '[]');
+		logs.push({user, time: new Date().toISOString()});
+		localStorage.setItem('callLogs', JSON.stringify(logs));
+	}
 }
 
-async function loadCallLogs(){
+function loadCallLogs(){
 	callLogs.innerHTML = "";
-	try{
-		let res = await fetch(`/calls/${encodeURIComponent(username)}`)
-		let logs = await res.json()
-		if(!logs.length){
-			callLogs.innerHTML = "<p>No call logs</p>"
-			return
-		}
+	let logs = JSON.parse(localStorage.getItem('callLogs') || '[]');
+	if(logs.length === 0){
+		callLogs.innerHTML = "<p>No call logs</p>";
+	}else{
 		logs.forEach(log => {
-			let who = log.caller === username ? log.callee : log.caller
 			let div = document.createElement("div");
-			div.textContent = `${log.caller} → ${log.callee} (${log.type || 'call'}) at ${new Date(log.time).toLocaleString()}`
+			div.textContent = "Called " + log.user + " at " + new Date(log.time).toLocaleString();
 			callLogs.appendChild(div);
-		})
-	}catch(e){
-		callLogs.innerHTML = "<p>Unable to load call logs</p>"
-		console.error(e)
+		});
 	}
 }
 
 /* SETTINGS */
 
-async function changeProfilePic(){
+function changeProfilePic(){
 	let input = document.createElement("input");
 	input.type = "file";
 	input.accept = "image/*";
-	input.onchange = async e => {
+	input.onchange = e => {
 		let file = e.target.files[0];
 		if(file){
-			let form = new FormData();
-			form.append('photo', file);
-			form.append('username', username);
-			let res = await fetch('/upload-profile', {method:'POST', body: form});
-			let data = await res.json();
-			if(data.file){
-				profilePic.src = '/profiles/' + data.file;
-			}
+			let reader = new FileReader();
+			reader.onload = () => {
+				profilePic.src = reader.result;
+				localStorage.setItem('profilePic', reader.result);
+			};
+			reader.readAsDataURL(file);
 		}
 	};
 	input.click();
@@ -808,11 +721,8 @@ function downloadData(){
 }
 
 function logout(){
-	username = ""
-	currentChat = ""
-	app.style.display = "none"
-	bottomNav.style.display = "none"
-	loginScreen.style.display = "flex"
+	localStorage.clear();
+	location.reload();
 }
 
 // Load data on start

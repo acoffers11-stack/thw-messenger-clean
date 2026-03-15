@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npm rebuild sqlite3"
+    "postinstall": "npm rebuild sqlite3 --build-from-source"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -15,7 +15,7 @@
     "nodemailer": "^8.0.2",
     "resend": "^6.9.3",
     "socket.io": "^4.8.3",
-    "sqlite3": "^6.0.1",
+    "sqlite3": "^5.1.7",
     "twilio": "^4.21.0"
   }
 }

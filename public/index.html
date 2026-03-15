@@ -11,6 +11,7 @@
 
 body{
 margin:0;
+padding:0;
 font-family:Arial, Helvetica, sans-serif;
 background:#ece5dd;
 }
@@ -30,6 +31,7 @@ background:white;
 padding:35px;
 border-radius:10px;
 width:320px;
+max-width:90%;
 box-shadow:0 10px 25px rgba(0,0,0,0.25);
 text-align:center;
 }
@@ -197,7 +199,7 @@ color:#666;
 /* BOTTOM NAVIGATION */
 
 #bottomNav{
-position:absolute;
+position:fixed;
 bottom:0;
 width:100%;
 background:#075E54;
@@ -205,6 +207,7 @@ display:flex;
 justify-content:space-around;
 align-items:center;
 padding:10px 0;
+z-index:10;
 }
 
 .navItem{
@@ -237,8 +240,58 @@ font-size:10px;
 }
 
 .tabScreen{
-height: calc(100vh - 60px);
+height: 100%;
 overflow-y:auto;
+}
+
+/* MOBILE RESPONSIVE */
+
+@media (max-width: 768px) {
+	#chatContainer {
+		position: relative;
+	}
+	#usersPanel {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 1;
+	}
+	#chatArea {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 100%;
+		z-index: 2;
+		transition: left 0.3s;
+	}
+	#chatArea.show {
+		left: 0;
+	}
+	#chatHeader {
+		display: flex;
+		align-items: center;
+	}
+	#backBtn {
+		margin-right: 10px;
+		cursor: pointer;
+		font-size: 20px;
+	}
+	.box {
+		width: 90%;
+		padding: 20px;
+	}
+	input, button {
+		font-size: 16px; /* Prevent zoom on iOS */
+	}
+}
+
+@media (min-width: 769px) {
+	#backBtn {
+		display: none;
+	}
 }
 
 </style>
@@ -290,7 +343,7 @@ overflow-y:auto;
 
 <!-- CHAT -->
 
-<div id="app" style="display:none; height:100vh; position:relative;">
+<div id="app" style="display:none; height:calc(100vh - 60px); position:relative; overflow:hidden;">
 
 	<!-- CHATS SCREEN -->
 	<div id="chatsScreen" class="tabScreen">
@@ -300,7 +353,7 @@ overflow-y:auto;
 				<div id="chatsList"></div>
 			</div>
 			<div id="chatArea">
-				<div id="chatHeader">Select Chat</div>
+				<div id="chatHeader"><span id="backBtn" onclick="showChats()">←</span> Select Chat</div>
 				<div id="messages"></div>
 				<div id="typing"></div>
 				<div id="inputBar">
@@ -356,6 +409,8 @@ overflow-y:auto;
 		</div>
 	</div>
 
+</div>
+
 	<!-- BOTTOM NAVIGATION -->
 	<div id="bottomNav">
 		<div class="navItem" id="statusTab">
@@ -386,9 +441,10 @@ let recorder
 let audioChunks=[]
 let recording=false
 
-function showLogin(){
-signupScreen.style.display="none"
-loginScreen.style.display="flex"
+function showChats(){
+	chatArea.classList.remove('show');
+	chatHeader.innerHTML = 'Select Chat';
+	currentChat = '';
 }
 
 /* EMAIL CODE */
@@ -488,7 +544,7 @@ div.innerHTML="<div class='avatar'></div>"+u+"<div class='online'></div>"
 div.onclick=()=>{
 
 currentChat=u
-chatHeader.innerText=u
+chatHeader.innerHTML = '<span id="backBtn" onclick="showChats()">←</span> ' + u;
 messages.innerHTML = "";
 
 // Load history
@@ -501,6 +557,11 @@ if(history[u]){
 		messages.appendChild(div)
 	});
 	messages.scrollTop=messages.scrollHeight
+}
+
+// Mobile: show chat area
+if(window.innerWidth <= 768){
+	chatArea.classList.add('show');
 }
 
 }
